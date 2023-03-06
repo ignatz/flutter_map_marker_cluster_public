@@ -58,26 +58,29 @@ class QuickHull {
 
   static List<LatLng> getConvexHull(List<LatLng> latLngs) {
     // find first baseline
-    double? maxLat, minLat, maxLng, minLng;
+    double maxLat = -double.infinity,
+        minLat = double.infinity,
+        maxLng = -double.infinity,
+        minLng = double.infinity;
 
     LatLng? maxLatPt, minLatPt, maxLngPt, minLngPt, maxPt, minPt;
 
     for (var i = latLngs.length - 1; i >= 0; i--) {
       final pt = latLngs[i];
 
-      if (maxLat == null || pt.latitude > maxLat) {
+      if (pt.latitude > maxLat) {
         maxLatPt = pt;
         maxLat = pt.latitude;
       }
-      if (minLat == null || pt.latitude < minLat) {
+      if (pt.latitude < minLat) {
         minLatPt = pt;
         minLat = pt.latitude;
       }
-      if (maxLng == null || pt.longitude > maxLng) {
+      if (pt.longitude > maxLng) {
         maxLngPt = pt;
         maxLng = pt.longitude;
       }
-      if (minLng == null || pt.longitude < minLng) {
+      if (pt.longitude < minLng) {
         minLngPt = pt;
         minLng = pt.longitude;
       }

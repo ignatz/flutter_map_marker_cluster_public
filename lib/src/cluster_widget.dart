@@ -14,10 +14,11 @@ class ClusterWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final child = builder(context, cluster.mapMarkers);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: builder(context, cluster.mapMarkers),
+      child: child,
     );
   }
 }

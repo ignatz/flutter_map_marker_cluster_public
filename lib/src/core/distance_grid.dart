@@ -1,22 +1,54 @@
 import 'dart:math';
 
+class CellEntry<T> {
+  final T obj;
+  final Point point;
+
+  const CellEntry(this.obj, this.point);
+
+  @override
+  bool operator ==(Object other) {
+    return other is CellEntry<T> && other.obj == obj;
+  }
+
+  @override
+  int get hashCode => obj.hashCode;
+}
+
+class GridKey {
+  final int row;
+  final int col;
+
+  GridKey(this.row, this.col);
+
+  @override
+  bool operator ==(Object other) {
+    return other is GridKey && other.row == row && other.col == col;
+  }
+
+  @override
+  int get hashCode => Object.hash(row, col);
+}
+
 class DistanceGrid<T> {
   final num cellSize;
 
   final num _sqCellSize;
-  final Map<num, Map<num, List<T>>> _grid = {};
-  final Map<T, Point> _objectPoint = {};
+  final Map<GridKey, List<CellEntry<T>>> _grid = {};
+  final Map<T, GridKey> _objectPoint = {};
 
-  DistanceGrid(this.cellSize) : _sqCellSize = cellSize * cellSize;
+  DistanceGrid(this.cellSize)
+      : assert(cellSize > 0),
+        _sqCellSize = cellSize * cellSize;
 
   void addObject(T obj, Point point) {
+    assert(!_objectPoint.containsKey(obj));
     final x = _getCoord(point.x), y = _getCoord(point.y);
-    final row = _grid[y] ??= {};
-    final cell = row[x] ??= [];
+    final key = GridKey(y, x);
+    final cell = _grid[key] ??= [];
 
-    _objectPoint[obj] = point;
-
-    cell.add(obj);
+    _objectPoint[obj] = key;
+    cell.add(CellEntry<T>(obj, point));
   }
 
   void updateObject(T obj, Point point) {
@@ -24,46 +56,24 @@ class DistanceGrid<T> {
     addObject(obj, point);
   }
 
-  //Returns true if the object was found
+  // Returns true if the object was found
   bool removeObject(T obj) {
-    final point = _objectPoint[obj];
-    if (point == null) return false;
+    final key = _objectPoint.remove(obj);
+    if (key == null) return false;
 
-    final x = _getCoord(point.x), y = _getCoord(point.y);
-    final row = _grid[y] ??= {};
-    final cell = row[x] ??= [];
-
-    _objectPoint.remove(obj);
-
-    final len = cell.length;
-    for (var i = 0; i < len; i++) {
-      if (cell[i] == obj) {
-        cell.removeAt(i);
-
-        if (len == 1) {
-          row.remove(x);
-
-          if (_grid[y]!.isEmpty) {
-            _grid.remove(y);
-          }
-        }
-
-        return true;
-      }
+    // Object existed in the _objectPoint map, thus must exist in the grid.
+    final cell = _grid[key]!;
+    cell.removeWhere((e) => e.obj == obj);
+    if (cell.isEmpty) {
+      _grid.remove(key);
     }
-    return false;
+    return true;
   }
 
   void eachObject(Function(T) fn) {
-    for (final i in _grid.keys) {
-      final row = _grid[i]!;
-
-      for (final j in row.keys) {
-        final cell = row[j]!;
-
-        for (var k = 0; k < cell.length; k++) {
-          fn(cell[k]);
-        }
+    for (final cell in _grid.values) {
+      for (final entry in cell) {
+        fn(entry.obj);
       }
     }
   }
@@ -73,21 +83,16 @@ class DistanceGrid<T> {
     var closestDistSq = _sqCellSize;
     T? closest;
 
+    // Checks rows and columns with index +/- 1.
     for (var i = y - 1; i <= y + 1; i++) {
-      final row = _grid[i];
-      if (row != null) {
-        for (var j = x - 1; j <= x + 1; j++) {
-          final cell = row[j];
-          if (cell != null) {
-            for (var k = 0; k < cell.length; k++) {
-              final obj = cell[k];
-              final dist = _sqDist(_objectPoint[obj]!, point);
-
-              if (dist < closestDistSq ||
-                  dist <= closestDistSq && closest == null) {
-                closestDistSq = dist;
-                closest = obj;
-              }
+      for (var j = x - 1; j <= x + 1; j++) {
+        final cell = _grid[GridKey(i, j)];
+        if (cell != null) {
+          for (final entry in cell) {
+            final dist = entry.point.squaredDistanceTo(point);
+            if (dist <= closestDistSq) {
+              closestDistSq = dist;
+              closest = entry.obj;
             }
           }
         }
@@ -96,13 +101,5 @@ class DistanceGrid<T> {
     return closest;
   }
 
-  num _getCoord(num x) {
-    final coord = x / cellSize;
-    return coord.isFinite ? coord.floor() : x;
-  }
-
-  num _sqDist(Point p1, Point p2) {
-    final dx = p2.x - p1.x, dy = p2.y - p1.y;
-    return dx * dx + dy * dy;
-  }
+  int _getCoord(num x) => x ~/ cellSize;
 }

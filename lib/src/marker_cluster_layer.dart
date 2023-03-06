@@ -469,7 +469,8 @@ class _MarkerClusterLayerState extends State<MarkerClusterLayer>
   }
 
   List<Widget> _buildLayers() {
-    if (widget.map.zoom != _previousZoomDouble) {
+    if (widget.options.spiderfyCluster &&
+        widget.map.zoom != _previousZoomDouble) {
       _previousZoomDouble = widget.map.zoom;
       _unspiderfy();
     }
@@ -514,10 +515,8 @@ class _MarkerClusterLayerState extends State<MarkerClusterLayer>
 
       if (layer is MarkerNode) {
         _addMarkerLayer(layer, layers);
-      } else if (layer is MarkerClusterNode) {
-        _addMarkerClusterLayer(layer, layers);
       } else {
-        throw 'Unexpected layer type: ${layer.runtimeType}';
+        _addMarkerClusterLayer(layer as MarkerClusterNode, layers);
       }
     });
 
@@ -583,8 +582,11 @@ class _MarkerClusterLayerState extends State<MarkerClusterLayer>
         }
       }
 
-      if (dest.zoom > _currentZoom && !cannotDivide) {
-        _showPolygon(cluster.markers.map((m) => m.point).toList());
+      if (widget.options.showPolygon &&
+          dest.zoom > _currentZoom &&
+          !cannotDivide) {
+        _showPolygon(List<LatLng>.generate(
+            cluster.markers.length, (i) => cluster.markers[i].point));
       }
 
       final latTween =
@@ -668,19 +670,17 @@ class _MarkerClusterLayerState extends State<MarkerClusterLayer>
   }
 
   void _showPolygon(List<LatLng> points) {
-    if (widget.options.showPolygon) {
-      setState(() {
-        _polygon = PolygonLayer(polygons: [
-          Polygon(
-            points: QuickHull.getConvexHull(points),
-            borderStrokeWidth: widget.options.polygonOptions.borderStrokeWidth,
-            color: widget.options.polygonOptions.color,
-            borderColor: widget.options.polygonOptions.borderColor,
-            isDotted: widget.options.polygonOptions.isDotted,
-          ),
-        ]);
-      });
-    }
+    setState(() {
+      _polygon = PolygonLayer(polygons: [
+        Polygon(
+          points: QuickHull.getConvexHull(points),
+          borderStrokeWidth: widget.options.polygonOptions.borderStrokeWidth,
+          color: widget.options.polygonOptions.color,
+          borderColor: widget.options.polygonOptions.borderColor,
+          isDotted: widget.options.polygonOptions.isDotted,
+        ),
+      ]);
+    });
   }
 
   void _hidePolygon() {

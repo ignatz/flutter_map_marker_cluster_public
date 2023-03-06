@@ -7,14 +7,30 @@ import 'package:flutter_map_marker_cluster/src/node/marker_cluster_node.dart';
 import 'package:flutter_map_marker_cluster/src/node/marker_node.dart';
 import 'package:flutter_map_marker_cluster/src/node/marker_or_cluster_node.dart';
 
+class DistanceGridByZoom<T> {
+  final int minZoom;
+  final int maxZoom;
+  final List<DistanceGrid<T>> _gridByZoom;
+
+  DistanceGridByZoom({
+    required this.minZoom,
+    required this.maxZoom,
+    required int maxClusterRadius,
+  }) : _gridByZoom = List<DistanceGrid<T>>.generate(maxZoom - minZoom + 1, (_) {
+          return DistanceGrid<T>(maxClusterRadius);
+        }, growable: false);
+
+  DistanceGrid<T> operator [](int i) => _gridByZoom[i - minZoom];
+}
+
 class ClusterManager {
   final MapCalculator mapCalculator;
   final AnchorPos? anchorPos;
   final Size predefinedSize;
   final Size Function(List<Marker>)? computeSize;
 
-  late final Map<int, DistanceGrid<MarkerClusterNode>> _gridClusters;
-  late final Map<int, DistanceGrid<MarkerNode>> _gridUnclustered;
+  late final DistanceGridByZoom<MarkerClusterNode> _gridClusters;
+  late final DistanceGridByZoom<MarkerNode> _gridUnclustered;
   late MarkerClusterNode _topClusterLevel;
 
   MarkerClusterNode? spiderfyCluster;
@@ -24,8 +40,8 @@ class ClusterManager {
     required this.anchorPos,
     required this.predefinedSize,
     required this.computeSize,
-    required Map<int, DistanceGrid<MarkerClusterNode>> gridClusters,
-    required Map<int, DistanceGrid<MarkerNode>> gridUnclustered,
+    required DistanceGridByZoom<MarkerClusterNode> gridClusters,
+    required DistanceGridByZoom<MarkerNode> gridUnclustered,
     required MarkerClusterNode topClusterLevel,
   })  : _gridClusters = gridClusters,
         _gridUnclustered = gridUnclustered,
@@ -40,13 +56,10 @@ class ClusterManager {
     required int maxZoom,
     required int maxClusterRadius,
   }) {
-    final gridClusters = <int, DistanceGrid<MarkerClusterNode>>{};
-    final gridUnclustered = <int, DistanceGrid<MarkerNode>>{};
-
-    for (var zoom = maxZoom; zoom >= minZoom; zoom--) {
-      gridClusters[zoom] = DistanceGrid(maxClusterRadius);
-      gridUnclustered[zoom] = DistanceGrid(maxClusterRadius);
-    }
+    final gridClusters = DistanceGridByZoom<MarkerClusterNode>(
+        minZoom: minZoom, maxZoom: maxZoom, maxClusterRadius: maxClusterRadius);
+    final gridUnclustered = DistanceGridByZoom<MarkerNode>(
+        minZoom: minZoom, maxZoom: maxZoom, maxClusterRadius: maxClusterRadius);
 
     final topClusterLevel = MarkerClusterNode(
       anchorPos: anchorPos,
@@ -78,13 +91,13 @@ class ClusterManager {
           mapCalculator.project(marker.point, zoom: zoom.toDouble());
       if (zoom <= disableClusteringAtZoom) {
         // try find a cluster close by
-        final cluster = _gridClusters[zoom]!.getNearObject(markerPoint);
+        final cluster = _gridClusters[zoom].getNearObject(markerPoint);
         if (cluster != null) {
           cluster.addChild(marker, marker.point);
           return;
         }
 
-        final closest = _gridUnclustered[zoom]!.getNearObject(markerPoint);
+        final closest = _gridUnclustered[zoom].getNearObject(markerPoint);
         if (closest != null) {
           final parent = closest.parent!;
           parent.removeChild(closest);
@@ -98,7 +111,7 @@ class ClusterManager {
             ..addChild(closest, closest.point)
             ..addChild(marker, closest.point);
 
-          _gridClusters[zoom]!.addObject(
+          _gridClusters[zoom].addObject(
             newCluster,
             mapCalculator.project(
               newCluster.bounds.center,
@@ -120,7 +133,7 @@ class ClusterManager {
               lastParent.bounds.center,
             );
             lastParent = newParent;
-            _gridClusters[z]!.addObject(
+            _gridClusters[z].addObject(
               lastParent,
               mapCalculator.project(
                 closest.point,
@@ -135,7 +148,7 @@ class ClusterManager {
         }
       }
 
-      _gridUnclustered[zoom]!.addObject(marker, markerPoint);
+      _gridUnclustered[zoom].addObject(marker, markerPoint);
     }
 
     //Didn't get in anything, add us to the top
@@ -145,7 +158,7 @@ class ClusterManager {
   void _removeFromNewPosToMyPosGridUnclustered(
       MarkerNode marker, int zoom, int minZoom) {
     for (; zoom >= minZoom; zoom--) {
-      if (!_gridUnclustered[zoom]!.removeObject(marker)) {
+      if (!_gridUnclustered[zoom].removeObject(marker)) {
         break;
       }
     }
