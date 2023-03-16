@@ -87,14 +87,27 @@ class ClusterManager {
         spiderfyCluster!.bounds.center == cluster.bounds.center;
   }
 
-  RBushElement<MarkerNode> toElement(MarkerNode marker, int zoom) {
-    final point = mapCalculator.project(marker.point, zoom: zoom.toDouble());
-    return RBushElement<MarkerNode>(
+  RBushElement<MarkerOrClusterNode> toElement(
+      MarkerOrClusterNode node, int zoom) {
+    if (node is MarkerNode) {
+      final point = mapCalculator.project(node.point, zoom: zoom.toDouble());
+      return RBushElement<MarkerOrClusterNode>(
+        minX: point.x.toDouble(),
+        maxX: point.x.toDouble(),
+        minY: point.y.toDouble(),
+        maxY: point.y.toDouble(),
+        data: node,
+      );
+    }
+
+    final latlng = (node as MarkerClusterNode).bounds.center;
+    final point = mapCalculator.project(latlng, zoom: zoom.toDouble());
+    return RBushElement<MarkerOrClusterNode>(
       minX: point.x.toDouble(),
       maxX: point.x.toDouble(),
       minY: point.y.toDouble(),
       maxY: point.y.toDouble(),
-      data: marker,
+      data: node,
     );
   }
 
@@ -114,105 +127,85 @@ class ClusterManager {
     );
   }
 
+  RBushBox toBox2(CustomPoint<double> p, int maxDistance) {
+    return RBushBox(
+      minX: p.x - maxDistance / 2,
+      maxX: p.x + maxDistance / 2,
+      minY: p.y - maxDistance / 2,
+      maxY: p.y + maxDistance / 2,
+    );
+  }
+
   void addLayers(
     List<MarkerNode> markers,
     int disableClusteringAtZoom,
-    int maxZoom,
+    int _,
     int minZoom,
     int maxClusterRadius,
   ) {
+    maxClusterRadius = 400;
+    final mz = disableClusteringAtZoom;
     final elements = List.generate(
-        markers.length, (int index) => toElement(markers[index], maxZoom));
+        markers.length, (int index) => toElement(markers[index], mz));
 
-    final tree = RBush<MarkerNode>(16);
+    final tree = RBush<MarkerOrClusterNode>(16);
     tree.load(elements);
 
-    final maxDepth = maxZoom - minZoom;
-    assert(maxDepth >= 0);
+    for (int zoom = mz; zoom >= minZoom; zoom--) {
+      final int i = mz - zoom;
+      final int maxDistance = maxClusterRadius * math.pow(2, i).toInt();
 
-    LatLng? recurse(
-      int depth,
-      MarkerClusterNode parent,
-      List<RBushElement<MarkerNode>> elements,
-    ) {
-      final int zoom = minZoom + depth;
-      // print('$depth $zoom $minZoom');
-      final int maxDistance =
-          maxClusterRadius * math.pow(2, maxDepth - depth).toInt();
+      final Set<RBushElement<MarkerOrClusterNode>> pending = tree.all().toSet();
 
-      final Set<RBushElement<MarkerNode>> pending = elements.toSet();
-      // print('elements: ${elements.length}');
-      final points = <LatLng>[];
       while (pending.isNotEmpty) {
         final element = pending.first;
         final point = CustomPoint<double>(element.maxX, element.maxY);
 
-        final box = toBox(point, maxDistance);
+        final box = toBox2(point, maxDistance);
         // Convert to set because the search result sometimes contains duplicates :/.
-        final List<RBushElement<MarkerNode>> neighbors =
+        final List<RBushElement<MarkerOrClusterNode>> neighbors =
             tree.search(box).toSet().toList();
         if (neighbors.isEmpty) throw 'wtf';
 
-        // DEBUG
-        for (final neighbor in neighbors) {
-          final point1 =
-              mapCalculator.project(element.data.point, zoom: zoom.toDouble());
-          final point2 =
-              mapCalculator.project(neighbor.data.point, zoom: zoom.toDouble());
-
-          final dx = (point1.x - point2.x).abs();
-          final dy = (point1.y - point2.y).abs();
-          if (dx > maxClusterRadius || dy > maxClusterRadius) {
-            throw 'too large ${maxClusterRadius} ${dx} ${dy}';
-          }
-        }
-        // DEBUG
-
-        if (zoom >= disableClusteringAtZoom || neighbors.length == 1) {
-          // Stop the clustering.
-          for (final neighbor in neighbors) {
-            final marker = neighbor.data;
-            final success = pending.remove(neighbor);
-            if (!success) throw 'fail1';
-
-            parent.addChild(marker, marker.point);
-            points.add(marker.point);
-          }
+        if (neighbors.length == 1) {
+          final success = pending.remove(neighbors.first);
+          assert(success);
         } else {
-          // Continue the clustering.
-          // pending.removeAll(neighbors);
-          for (final neighbor in neighbors) {
-            final success = pending.remove(neighbor);
-            if (!success) throw 'fail2';
-          }
-
-          final markers = neighbors.map((n) => n.data).toList();
-          final bounds =
-              LatLngBounds.fromPoints(markers.map((m) => m.point).toList());
-
           final cluster = MarkerClusterNode(
-            zoom: zoom,
+            zoom: zoom - 1,
             anchorPos: anchorPos,
             predefinedSize: predefinedSize,
             computeSize: computeSize,
           );
 
-          final center = recurse(depth + 1, cluster, neighbors)!;
+          for (final neighbor in neighbors) {
+            final node = neighbor.data;
+            LatLng center;
+            if (node is MarkerNode) {
+              center = node.point;
+            } else {
+              center = (node as MarkerClusterNode).bounds.center;
+            }
+            cluster.addChild(node, center);
+            pending.remove(neighbor);
+            tree.remove(neighbor);
+          }
 
-          parent.addChild(cluster, center);
-          points.add(center);
-          // print('add cluster: $depth $zoom ${markers.length}');
+          tree.insert(toElement(cluster, mz));
         }
       }
-
-      if (points.isNotEmpty) {
-        return LatLngBounds.fromPoints(points).center;
-      }
-      return null;
     }
 
-    final root = _topClusterLevel;
-    recurse(0, root, elements);
+    for (final element in tree.all()) {
+      final node = element.data;
+      LatLng center;
+      if (node is MarkerNode) {
+        center = node.point;
+      } else {
+        center = (node as MarkerClusterNode).bounds.center;
+      }
+      _topClusterLevel.addChild(node, center);
+    }
   }
 
   void addLayer(MarkerNode marker, int disableClusteringAtZoom, int maxZoom,
