@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'dart:math' as math;
 
 import 'package:flutter_map/plugin_api.dart';
 import 'package:flutter_map_marker_cluster/src/core/distance_grid.dart';
@@ -21,6 +22,12 @@ class DistanceGridByZoom<T> {
         }, growable: false);
 
   DistanceGrid<T> operator [](int i) => _gridByZoom[i - minZoom];
+
+  void clear() {
+    for (final grid in _gridByZoom) {
+      grid.clear();
+    }
+  }
 }
 
 class ClusterManager {
@@ -86,7 +93,9 @@ class ClusterManager {
 
   void addLayer(MarkerNode marker, int disableClusteringAtZoom, int maxZoom,
       int minZoom) {
-    for (var zoom = maxZoom; zoom >= minZoom; zoom--) {
+    final int start = math.min(disableClusteringAtZoom + 1, maxZoom).toInt();
+    for (int zoom = start; zoom >= minZoom; zoom--) {
+      // for (int zoom = maxZoom; zoom >= minZoom; zoom--) {
       final markerPoint =
           mapCalculator.project(marker.point, zoom: zoom.toDouble());
       if (zoom <= disableClusteringAtZoom) {
@@ -164,8 +173,11 @@ class ClusterManager {
     }
   }
 
-  void recalculateTopClusterLevelProperties() =>
-      _topClusterLevel.recalculate(recursively: true);
+  void recalculateTopClusterLevelProperties() {
+    _topClusterLevel.recalculate(recursively: true);
+    _gridUnclustered.clear();
+    _gridClusters.clear();
+  }
 
   void recursivelyFromTopClusterLevel(
           int zoomLevel,

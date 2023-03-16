@@ -69,7 +69,8 @@ class _MarkerClusterLayerState extends State<MarkerClusterLayer>
     _maxZoom = widget.map.options.maxZoom?.floor() ?? 20;
     _previousZoomDouble = widget.map.zoom;
     _initializeAnimationControllers();
-    _initializeClusterManager();
+
+    _clusterManager = _initializeClusterManager();
     _addLayers();
 
     _zoomController.forward();
@@ -111,14 +112,17 @@ class _MarkerClusterLayerState extends State<MarkerClusterLayer>
   @override
   void didUpdateWidget(MarkerClusterLayer oldWidget) {
     if (oldWidget.options.markers != widget.options.markers) {
-      _initializeClusterManager();
+      _clusterManager = _initializeClusterManager();
+      // final watch = Stopwatch()..start();
       _addLayers();
+      // print('addLayers: ${watch.elapsed}');
+      // watch.stop();
     }
     super.didUpdateWidget(oldWidget);
   }
 
-  void _initializeClusterManager() {
-    _clusterManager = ClusterManager.initialize(
+  ClusterManager _initializeClusterManager() {
+    return ClusterManager.initialize(
       anchorPos: widget.options.anchor,
       mapCalculator: _mapCalculator,
       predefinedSize: widget.options.size,

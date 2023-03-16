@@ -41,6 +41,11 @@ class DistanceGrid<T> {
       : assert(cellSize > 0),
         _sqCellSize = cellSize * cellSize;
 
+  void clear() {
+    _grid.clear();
+    _objectPoint.clear();
+  }
+
   void addObject(T obj, Point point) {
     assert(!_objectPoint.containsKey(obj));
     final x = _getCoord(point.x), y = _getCoord(point.y);
