@@ -111,8 +111,12 @@ class _MarkerClusterLayerState extends State<MarkerClusterLayer>
   @override
   void didUpdateWidget(MarkerClusterLayer oldWidget) {
     if (oldWidget.options.markers != widget.options.markers) {
+      final watch = Stopwatch()..start();
       _initializeClusterManager();
+      print('cluster manager init: ${watch.elapsed}');
       _addLayers();
+      print('addLayers: ${watch.elapsed}');
+      watch.stop();
     }
     super.didUpdateWidget(oldWidget);
   }
@@ -130,12 +134,25 @@ class _MarkerClusterLayerState extends State<MarkerClusterLayer>
   }
 
   void _addLayers() {
-    for (final marker in widget.options.markers) {
-      _clusterManager.addLayer(
-        MarkerNode(marker),
+    if (false) {
+      for (final marker in widget.options.markers) {
+        _clusterManager.addLayer(
+          MarkerNode(marker),
+          widget.options.disableClusteringAtZoom,
+          _maxZoom,
+          _minZoom,
+        );
+      }
+    } else {
+      // final markers = List.generate(
+      //     widget.options.markers, (i) => MarkerNode(widget.options.markers[i]));
+      final markers = widget.options.markers.map((m) => MarkerNode(m)).toList();
+      _clusterManager.addLayers(
+        markers,
         widget.options.disableClusteringAtZoom,
         _maxZoom,
         _minZoom,
+        widget.options.maxClusterRadius,
       );
     }
 
