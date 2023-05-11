@@ -126,7 +126,7 @@ class MarkerClusterNode extends MarkerOrClusterNode {
   }
 
   @override
-  Bounds pixelBounds(FlutterMapState map) {
+  Bounds<double> pixelBounds(FlutterMapState map) {
     final width = size().width;
     final height = size().height;
     final anchor = Anchor.forPos(anchorPos, width, height);
@@ -136,11 +136,11 @@ class MarkerClusterNode extends MarkerOrClusterNode {
     final bottomPortion = height - anchor.top;
     final topPortion = anchor.top;
 
-    final ne =
-        map.project(bounds.northEast!) + CustomPoint(rightPortion, -topPortion);
+    final ne = map.project(bounds.northEast!) +
+        CustomPoint<double>(rightPortion, -topPortion);
     final sw = map.project(bounds.southWest!) +
-        CustomPoint(-leftPortion, bottomPortion);
+        CustomPoint<double>(-leftPortion, bottomPortion);
 
-    return Bounds(ne, sw);
+    return Bounds<double>(ne, sw);
   }
 }
