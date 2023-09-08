@@ -15,7 +15,6 @@ import 'package:flutter_map_marker_cluster/src/node/marker_node.dart';
 import 'package:flutter_map_marker_cluster/src/node/marker_or_cluster_node.dart';
 import 'package:flutter_map_marker_cluster/src/rotate.dart';
 import 'package:flutter_map_marker_cluster/src/translate.dart';
-import 'package:flutter_map_marker_popup/extension_api.dart';
 import 'package:latlong2/latlong.dart';
 
 class MarkerClusterLayer extends StatefulWidget {
@@ -43,7 +42,6 @@ class _MarkerClusterLayerState extends State<MarkerClusterLayer>
   late AnimationController _centerMarkerController;
   late AnimationController _spiderfyController;
   PolygonLayer? _polygon;
-  final PopupState popupState = PopupState();
 
   _MarkerClusterLayerState();
 
@@ -123,7 +121,7 @@ class _MarkerClusterLayerState extends State<MarkerClusterLayer>
 
   ClusterManager _initializeClusterManager() {
     return ClusterManager.initialize(
-      anchorPos: widget.options.anchor,
+      anchorPos: widget.options.anchorPos,
       mapCalculator: _mapCalculator,
       predefinedSize: widget.options.size,
       computeSize: widget.options.computeSize,
@@ -178,7 +176,6 @@ class _MarkerClusterLayerState extends State<MarkerClusterLayer>
         onTap: _onMarkerTap(marker),
         onHover: (bool value) => _onMarkerHover(marker, value),
         buildOnHover: widget.options.popupOptions?.buildPopupOnHover ?? false,
-        hoverOnTap: () => widget.options.onMarkerTap!(marker),
       ),
     );
   }
@@ -199,8 +196,8 @@ class _MarkerClusterLayerState extends State<MarkerClusterLayer>
                       ? popupOptions.timeToShowPopupOnHover
                       : 0), () {
               popupOptions.markerTapBehavior.apply(
-                marker.marker,
-                PopupState.maybeOf(context, listen: false) ?? PopupState(),
+                PopupSpec.wrap(marker.marker),
+                PopupState.maybeOf(context, listen: false)!,
                 popupOptions.popupController,
               );
             })
@@ -527,12 +524,10 @@ class _MarkerClusterLayerState extends State<MarkerClusterLayer>
     final popupOptions = widget.options.popupOptions;
     if (popupOptions != null) {
       layers.add(PopupLayer(
-        popupState: PopupState.maybeOf(context, listen: false) ?? PopupState(),
-        popupBuilder: popupOptions.popupBuilder,
-        popupSnap: popupOptions.popupSnap,
-        popupController: popupOptions.popupController,
-        popupAnimation: popupOptions.popupAnimation,
-        markerRotate: popupOptions.markerRotate,
+        popupDisplayOptions: PopupDisplayOptions(
+            builder: popupOptions.popupBuilder,
+            animation: popupOptions.popupAnimation,
+            snap: popupOptions.popupSnap),
       ));
     }
 
@@ -627,8 +622,8 @@ class _MarkerClusterLayerState extends State<MarkerClusterLayer>
       if (widget.options.popupOptions != null) {
         final popupOptions = widget.options.popupOptions!;
         popupOptions.markerTapBehavior.apply(
-          marker.marker,
-          PopupState.maybeOf(context, listen: false) ?? PopupState(),
+          PopupSpec.wrap(marker.marker),
+          PopupState.maybeOf(context, listen: false)!,
           popupOptions.popupController,
         );
       }
@@ -715,7 +710,7 @@ class _MarkerClusterLayerState extends State<MarkerClusterLayer>
 LatLngBounds _extendBounds(LatLngBounds bounds, double stickonFactor) {
   final sw = bounds.southWest;
   final ne = bounds.northEast;
-  final height = (sw!.latitude - ne!.latitude).abs() * stickonFactor;
+  final height = (sw.latitude - ne.latitude).abs() * stickonFactor;
   final width = (sw.longitude - ne.longitude).abs() * stickonFactor;
 
   // Clamp rather than wrap around. This function is used in the context of
