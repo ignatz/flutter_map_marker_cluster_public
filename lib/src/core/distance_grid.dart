@@ -31,14 +31,14 @@ class GridKey {
 }
 
 class DistanceGrid<T> {
-  final num cellSize;
+  final int cellSize;
 
-  final num _sqCellSize;
+  final int _sqCellSize;
   final Map<GridKey, List<CellEntry<T>>> _grid = {};
   final Map<T, GridKey> _objectPoint = {};
 
-  DistanceGrid(this.cellSize)
-      : assert(cellSize > 0),
+  DistanceGrid(int cellSize)
+      : cellSize = cellSize > 0 ? cellSize : 1,
         _sqCellSize = cellSize * cellSize;
 
   void clear() {
@@ -85,7 +85,7 @@ class DistanceGrid<T> {
 
   T? getNearObject(Point point) {
     final x = _getCoord(point.x), y = _getCoord(point.y);
-    var closestDistSq = _sqCellSize;
+    double closestDistSq = _sqCellSize.toDouble();
     T? closest;
 
     // Checks rows and columns with index +/- 1.
@@ -96,7 +96,7 @@ class DistanceGrid<T> {
           for (final entry in cell) {
             final dist = entry.point.squaredDistanceTo(point);
             if (dist <= closestDistSq) {
-              closestDistSq = dist;
+              closestDistSq = dist.toDouble();
               closest = entry.obj;
             }
           }
