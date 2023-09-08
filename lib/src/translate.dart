@@ -40,10 +40,12 @@ abstract class Translate {
     LatLng? customPoint,
   }) {
     final pos = mapCalculator.getPixelFromPoint(customPoint ?? marker.point);
-    final anchor = marker.anchor ?? Anchor.fromPos(AnchorPos.defaultAnchorPos,
-      marker.width,
-      marker.height,
-    );
+    final anchor = marker.anchor ??
+        Anchor.fromPos(
+          AnchorPos.defaultAnchorPos,
+          marker.width,
+          marker.height,
+        );
     return util.removeAnchor(pos, marker.width, marker.height, anchor);
   }
 
@@ -136,11 +138,12 @@ class AnimatedTranslate extends Translate {
           point,
           marker.width,
           marker.height,
-          marker.anchor ?? Anchor.fromPos(
-            AnchorPos.defaultAnchorPos,
-            marker.width,
-            marker.height,
-          ),
+          marker.anchor ??
+              Anchor.fromPos(
+                AnchorPos.defaultAnchorPos,
+                marker.width,
+                marker.height,
+              ),
         ) {
     _tween = Tween<Point<double>>(
       begin: Point(position.x, position.y),
